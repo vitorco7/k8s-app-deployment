@@ -1,2 +1,2 @@
-# vitorco7-k8s-app-deployment
+# k8s-app-deployment
 Case study for app deployment with kubernetes
