@@ -1,0 +1,15 @@
+#   STAGE 1: Build the app
+
+FROM node:24-alpine3.23 AS builder
+
+WORKDIR /app
+
+#   Install dependencies and snapshot them in the layer cache
+COPY package.json yarn.lock ./
+
+RUN yarn install --frozen-lockfile
+
+#   Compilation
+COPY . .
+
+RUN yarn tsc
