@@ -14,22 +14,20 @@ COPY . .
 
 RUN yarn tsc
 
-###   STAGE 2: Run the app
+RUN yarn install --frozen-lockfile --production \
+    && yarn cache clean
+
+###   STAGE 3: Run the app
 
 FROM node:24-alpine3.23 AS production
 WORKDIR /app
 
-#   Create non-root user and set permissions
-RUN chown node:node /app
-
 USER node
 
-#   Copy manifest files and install only production dependencies
+#   Copy runtime manifest
 COPY --chown=node:node --from=builder /app/package.json ./
 
-COPY --chown=node:node --from=builder /app/yarn.lock ./
-
-RUN yarn install --frozen-lockfile --production
+COPY --chown=node:node --from=builder /app/node_modules ./node_modules
 
 #   Copy compiled code from the builder stage
 COPY --chown=node:node --from=builder /app/dist ./dist

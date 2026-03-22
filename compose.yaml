@@ -12,6 +12,8 @@ services:
       - "3000:3000"
     networks:
       - myapp-network
+    depends_on:
+      - mysql
 
   mysql:
     image: mariadb:5.5
