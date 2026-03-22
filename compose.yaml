@@ -9,7 +9,7 @@ services:
     image: vco7/k8s-app-deployment:${VERSION:-latest}
     restart: unless-stopped
     env_file:
-      - ormconfig.env
+      - k8s/app/secret.env
     ports:
       - "3000:3000"
     networks:
@@ -21,7 +21,7 @@ services:
     image: mariadb:5.5
     restart: unless-stopped
     env_file:
-      - dbconfig.env
+      - k8s/mysql/secret.env
     ports:
       - "3306:3306"
     networks:

@@ -1,0 +1,40 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Resources are applied in the order listed below.
+# The namespace must be created first; secrets/configmaps before workloads.
+# Override the image tag at deploy time:
+#   kubectl apply -k k8s --load-restrictor=LoadRestrictionsNone
+# Or pin a specific tag:
+#   IMAGE_TAG=1.2.3 kustomize edit set image vco7/k8s-app-deployment=vco7/k8s-app-deployment:$IMAGE_TAG
+images:
+  - name: vco7/k8s-app-deployment
+    newTag: 1.0.1
+
+# secretGenerator reads values from .env files at apply time.
+# Copy the .example files, fill in real values, and keep them out of git:
+#   cp k8s/app/secret.env.example k8s/app/secret.env
+#   cp k8s/mysql/secret.env.example k8s/mysql/secret.env
+# disableNameSuffixHash keeps the Secret name stable so Deployment references don't break.
+secretGenerator:
+  - name: app-db-credentials
+    namespace: k8s-app
+    envs:
+      - app/secret.env
+    options:
+      disableNameSuffixHash: true
+  - name: mysql-credentials
+    namespace: k8s-app
+    envs:
+      - mysql/secret.env
+    options:
+      disableNameSuffixHash: true
+
+resources:
+  - namespace.yaml
+  - app/configmap.yaml
+  - mysql/service.yaml
+  - mysql/statefulset.yaml
+  - app/service.yaml
+  - app/deployment.yaml
+  - app/ingress.yaml

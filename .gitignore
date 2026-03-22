@@ -1,3 +1,6 @@
 ormconfig.env
 dbconfig.env
 node_modules/
+
+# Kubernetes secret env files — never commit real credentials
+k8s/**/secret.env
