@@ -1,0 +1,21 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: dockerfile.yaml
+      target: production
+    image: k8s-app-deployment:prod
+    restart: unless-stopped
+    env_file:
+      - ormconfig.env
+    # depends_on:
+    #   mysql:
+    #     condition: service_healthy
+    ports:
+      - "3000:3000"
+    networks:
+      - myapp-network
+
+networks:
+  myapp-network:
+    driver: bridge
