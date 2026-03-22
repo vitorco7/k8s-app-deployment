@@ -1,0 +1,13 @@
+node_modules/
+Dockerfiles/
+dist/
+.git/
+.vscode/
+
+.gitignore
+.env
+.env.*
+.dockerignore
+
+compose.yaml
+*.env
