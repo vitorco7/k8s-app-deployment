@@ -1,4 +1,4 @@
-#   STAGE 1: Build the app
+###   STAGE 1: Build the app
 
 FROM node:24-alpine3.23 AS builder
 
@@ -13,3 +13,27 @@ RUN yarn install --frozen-lockfile
 COPY . .
 
 RUN yarn tsc
+
+###   STAGE 2: Run the app
+
+FROM node:24-alpine3.23 AS production
+WORKDIR /app
+
+#   Create non-root user and set permissions
+RUN chown node:node /app
+
+USER node
+
+#   Copy manifest files and install only production dependencies
+COPY --chown=node:node --from=builder /app/package.json ./
+
+COPY --chown=node:node --from=builder /app/yarn.lock ./
+
+RUN yarn install --frozen-lockfile --production
+
+#   Copy compiled code from the builder stage
+COPY --chown=node:node --from=builder /app/dist ./dist
+
+EXPOSE 3000
+
+CMD ["node", "dist/index.js"]
