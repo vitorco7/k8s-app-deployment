@@ -4,7 +4,9 @@ services:
       context: .
       dockerfile: Dockerfiles/app/dockerfile.yaml
       target: production
-    image: k8s-app-deployment:prod
+      args:
+        VERSION: ${VERSION:-latest}
+    image: vco7/k8s-app-deployment:${VERSION:-latest}
     restart: unless-stopped
     env_file:
       - ormconfig.env

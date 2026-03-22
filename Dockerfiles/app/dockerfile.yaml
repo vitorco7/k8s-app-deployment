@@ -17,7 +17,7 @@ RUN yarn tsc
 RUN yarn install --frozen-lockfile --production \
     && yarn cache clean
 
-###   STAGE 3: Run the app
+###   STAGE 2: Run the app
 
 FROM node:24-alpine3.23 AS production
 WORKDIR /app
