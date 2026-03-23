@@ -33,7 +33,7 @@ Submissions that do not contain these requirements will be automatically discons
 
 1. ~~Create a container image with the application in this repository and publish it in a public repository (dockerhub, quay, etc)~~;
 2. ~~Write all the code you feel necessary to deploy the image in a kubernetes cluster~~;
-3. Expose the application externally to the kubernetes cluster;
+3. ~~Expose the application externally to the kubernetes cluster~~;
 4. ~~Configure the application to be deployed in a highly available setup, considering the cluster has worker nodes in 3 different availability zones~~;
 
 ## Testing
@@ -47,12 +47,12 @@ While not all of these need to be implemented, the more of them that are complet
 
 - ~~Configure Kubernetes to authenticate to a private container repository~~;
 - Create a script automating image building and deployment;
-- Add a reverse proxy to route requests instead of exposing the main service;
+- ~~Add a reverse proxy to route requests instead of exposing the main service~~;
 - Write a few test scenarios, either for performance, functional or any other relevant kind of testing;
 - Create a script to configure a local kubernetes cluster, deploy the application and run the test scenarios mentioned above;
-- Configure the local kubernetes cluster to have 2+ worker nodes;
+- ~~Configure the local kubernetes cluster to have 2+ worker nodes~~;
 - Use [Helm](https://helm.sh/) on your application;
-- Use [Terraform](https://www.terraform.io/) to configure the local environment of your application;
+- ~~Use [Terraform](https://www.terraform.io/) to configure the local environment of your application~~;
 - 
   - Use it to configure a remote environment on any cloud provider as well;  
 
