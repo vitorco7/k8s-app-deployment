@@ -17,7 +17,7 @@ ifneq ($(strip $(V)),)
 VERSION := $(V)
 endif
 
-.PHONY: help run release release-dry run-dry dry version check-run-tools check-release-tools check-run-files check-release-files check-version
+.PHONY: help run release release-dry run-dry dry version stop-pods terraform-destroy check-run-tools check-release-tools check-run-files check-release-files check-version
 
 help:
 	@echo "Targets:"
@@ -29,6 +29,8 @@ help:
 	@echo "  make release-dry           Dry run with automatic patch bump"
 	@echo "  make run DRY_RUN=true      Same as run-dry"
 	@echo "  make run --dry             Raw GNU Make preview (prints recipe text only)"
+	@echo "  make stop-pods             Scale all deployments in namespace to 0 replicas"
+	@echo "  make terraform-destroy     Run terraform destroy in the terraform directory"
 	@echo ""
 	@echo "Variables you can override:"
 	@echo "  IMAGE_REPOSITORY=$(IMAGE_REPOSITORY)"
@@ -189,6 +191,21 @@ version: check-release-tools check-release-files
 	else \
 		echo "[make] Current version is not semantic (x.y.z), so next patch cannot be calculated automatically."; \
 	fi
+
+stop-pods: check-run-tools
+	@set -euo pipefail; \
+	echo "[make] Scaling all deployments and statefulsets in namespace '$(NAMESPACE)' to 0 replicas"; \
+	kubectl -n "$(NAMESPACE)" scale deployment --all --replicas=0; \
+	kubectl -n "$(NAMESPACE)" scale statefulset --all --replicas=0; \
+	echo "[make] All deployments and statefulsets scaled down."
+
+terraform-destroy:
+	@command -v terraform >/dev/null 2>&1 || { echo "[make] ERROR: terraform is required"; exit 1; }
+	@test -f "$(TERRAFORM_DIR)/main.tf" || { echo "[make] ERROR: Missing $(TERRAFORM_DIR)/main.tf"; exit 1; }
+	@set -euo pipefail; \
+	echo "[make] Running terraform destroy in $(TERRAFORM_DIR)"; \
+	terraform -chdir="$(TERRAFORM_DIR)" destroy; \
+	echo "[make] Terraform destroy complete."
 
 check-run-tools:
 	@command -v kubectl >/dev/null 2>&1 || { echo "[make] ERROR: kubectl is required"; exit 1; }
