@@ -8,3 +8,5 @@ terraform/.terraform/
 terraform/*.tfstate
 terraform/*.tfstate.backup
 terraform/*.tfvars
+FIRST-STEPS.md
+SUMMARY-CONTEXT.md
