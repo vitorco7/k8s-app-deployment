@@ -6,7 +6,7 @@ Case study for app deployment with kubernetes
 Use only `Makefile` as the deployment entrypoint:
 
 ```bash
-make run
+make release
 ```
 
 To deploy a specific version:
@@ -15,29 +15,31 @@ To deploy a specific version:
 make run VERSION=1.0.2
 ```
 
-Release alias (same workflow as `run`):
+Release with manual override:
 
 ```bash
 make release V=1.0.2
 ```
 
-Check version value and format:
+Check current and next version from `k8s/kustomization.yaml`:
 
 ```bash
 make version
-make version V=1.0.2
 ```
 
 Preview options:
 
 ```bash
-make run-dry
+make run-dry VERSION=1.0.2
+make release-dry
 make run DRY_RUN=true
 make run --dry
 ```
 
 Notes:
-- `make run-dry` / `make run DRY_RUN=true` are the recommended previews.
+- `make release` reads current `newTag` in `k8s/kustomization.yaml` for `vco7/k8s-app-deployment`, then increments patch (`1.0.1 -> 1.0.2`).
+- `make run` requires an explicit `VERSION=...`.
+- `make run-dry` / `make release-dry` / `make run DRY_RUN=true` are the recommended previews.
 - `make run --dry` is GNU Make raw output (recipe text only), so it can look noisy and include fallback error branches that are not actually executed.
 
 What it does:
@@ -64,5 +66,5 @@ Optional environment overrides:
 - `KUSTOMIZATION_FILE` (default: `k8s/kustomization.yaml`)
 - `NAMESPACE` (default: `k8s-app`)
 - `DEPLOYMENT_NAME` (default: `app`)
-- `VERSION` (default: generated timestamp tag)
+- `VERSION` (required for `make run`)
 - `V` (short alias for `VERSION`, useful with `make release V=...`)
