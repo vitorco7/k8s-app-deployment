@@ -3,3 +3,8 @@ dbconfig.env
 node_modules/
 k8s/**/secret.env
 k8s/**/registry-credentials.json
+
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/*.tfvars
