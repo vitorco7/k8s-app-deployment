@@ -1,3 +1,4 @@
 ormconfig.env
 dbconfig.env
 node_modules/
+k8s/**/secret.env
