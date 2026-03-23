@@ -6,13 +6,13 @@ Case study for app deployment with kubernetes
 Use only `Makefile` as the deployment entrypoint:
 
 ```bash
-make release
+make run
 ```
 
-To deploy a specific version:
+Run the full pipeline (build + publish + version bump + deploy):
 
 ```bash
-make run VERSION=1.0.2
+make release
 ```
 
 Release with manual override:
@@ -30,28 +30,28 @@ make version
 Preview options:
 
 ```bash
-make run-dry VERSION=1.0.2
+make run-dry
 make release-dry
 make run DRY_RUN=true
 make run --dry
 ```
 
 Notes:
-- `make release` reads current `newTag` in `k8s/kustomization.yaml` for `vco7/k8s-app-deployment`, then increments patch (`1.0.1 -> 1.0.2`).
-- `make run` requires an explicit `VERSION=...`.
+- `make run` runs only Terraform + Kubernetes deployment.
+- `make release` reads current `newTag` in `k8s/kustomization.yaml` for `vco7/k8s-app-deployment`, increments patch (`1.0.1 -> 1.0.2`), builds/pushes image, updates tag, then runs deployment.
 - `make run-dry` / `make release-dry` / `make run DRY_RUN=true` are the recommended previews.
 - `make run --dry` is GNU Make raw output (recipe text only), so it can look noisy and include fallback error branches that are not actually executed.
 
-What it does:
+`make run` does:
+- Runs Terraform workflow in `terraform/` (`init`, `plan`, `apply`)
+- Applies manifests with `kubectl apply -k k8s/`
+- Waits for rollout completion (`deployment/app` in `k8s-app` namespace)
+
+`make release` does:
 - Builds the app image from `Dockerfiles/app/dockerfile.yaml` (`production` target)
 - Pushes `<version>` and `latest` tags to Docker Hub
 - Updates `k8s/kustomization.yaml` (`images[].newTag`)
-- Runs Terraform workflow in `terraform/`:
-  - `terraform init`
-  - `terraform plan`
-  - `terraform apply`
-- Applies manifests with `kubectl apply -k k8s/`
-- Waits for rollout completion (`deployment/app` in `k8s-app` namespace)
+- Triggers `make run` (Terraform + Kubernetes deployment)
 
 Required local files:
 - `k8s/app/secret.env`
@@ -66,5 +66,5 @@ Optional environment overrides:
 - `KUSTOMIZATION_FILE` (default: `k8s/kustomization.yaml`)
 - `NAMESPACE` (default: `k8s-app`)
 - `DEPLOYMENT_NAME` (default: `app`)
-- `VERSION` (required for `make run`)
+- `VERSION` (optional manual override for `make release`)
 - `V` (short alias for `VERSION`, useful with `make release V=...`)

@@ -17,15 +17,15 @@ ifneq ($(strip $(V)),)
 VERSION := $(V)
 endif
 
-.PHONY: help run release release-dry run-dry dry version check-tools check-files check-version
+.PHONY: help run release release-dry run-dry dry version check-run-tools check-release-tools check-run-files check-release-files check-version
 
 help:
 	@echo "Targets:"
-	@echo "  make run VERSION=1.0.3     Deploy a specific version (required)"
-	@echo "  make release               Auto bump patch version from kustomization and deploy"
+	@echo "  make run                   Run only terraform + kubernetes deployment"
+	@echo "  make release               Build + publish + version bump + deploy"
 	@echo "  make release V=1.0.3       Override release version manually"
 	@echo "  make version               Show current and next patch version from kustomization"
-	@echo "  make run-dry VERSION=1.0.3 Dry run for explicit version"
+	@echo "  make run-dry               Dry run for terraform + kubernetes deployment"
 	@echo "  make release-dry           Dry run with automatic patch bump"
 	@echo "  make run DRY_RUN=true      Same as run-dry"
 	@echo "  make run --dry             Raw GNU Make preview (prints recipe text only)"
@@ -40,7 +40,7 @@ help:
 	@echo "  DEPLOYMENT_NAME=$(DEPLOYMENT_NAME)"
 	@echo "  VERSION=$(if $(strip $(VERSION)),$(VERSION),<empty>)"
 
-run: check-version check-tools check-files
+run: check-run-tools check-run-files
 	@set -euo pipefail; \
 	dry_run="$(DRY_RUN)"; \
 	run_cmd() { \
@@ -50,25 +50,32 @@ run: check-version check-tools check-files
 			"$$@"; \
 		fi; \
 	}; \
-	echo "[make] Deploying version $(VERSION)"; \
-	run_cmd docker build \
-		--file "$(DOCKERFILE_PATH)" \
-		--target production \
-		--tag "$(IMAGE_REPOSITORY):$(VERSION)" \
-		--tag "$(IMAGE_REPOSITORY):latest" \
-		.; \
-	run_cmd docker push "$(IMAGE_REPOSITORY):$(VERSION)"; \
-	run_cmd docker push "$(IMAGE_REPOSITORY):latest"; \
-	IMAGE_REPOSITORY_ESCAPED="$$(printf '%s' "$(IMAGE_REPOSITORY)" | sed -e 's/[][\\/.*^$$+?|(){}-]/\\&/g')"; \
-	grep -qE "^[[:space:]]*-[[:space:]]*name:[[:space:]]*$$IMAGE_REPOSITORY_ESCAPED[[:space:]]*$$" "$(KUSTOMIZATION_FILE)" || { \
-		echo "[make] ERROR: Image '$(IMAGE_REPOSITORY)' not found in $(KUSTOMIZATION_FILE)"; \
-		exit 1; \
+	ensure_minikube_running() { \
+		if [[ "$$dry_run" == "true" ]]; then \
+			echo "[make][dry-run] Check minikube status before applying manifests"; \
+			printf '[make][dry-run] %s\n' "minikube status --format={{.Host}}|{{.Kubelet}}|{{.APIServer}}"; \
+			printf '[make][dry-run] %s\n' "minikube start"; \
+			return 0; \
+		fi; \
+		minikube_status="$$(minikube status --format='{{.Host}}|{{.Kubelet}}|{{.APIServer}}' 2>/dev/null || true)"; \
+		if [[ "$$minikube_status" != "Running|Running|Running" ]]; then \
+			echo "[make] Minikube is not running. Starting minikube..."; \
+			minikube start; \
+		else \
+			echo "[make] Minikube is already running."; \
+		fi; \
 	}; \
-	run_cmd sed -i -E "/^[[:space:]]*-[[:space:]]*name:[[:space:]]*$$IMAGE_REPOSITORY_ESCAPED[[:space:]]*$$/{n;s/^([[:space:]]*newTag:[[:space:]]*).*/\\1$(VERSION)/;}" "$(KUSTOMIZATION_FILE)"; \
 	echo "[make] Running Terraform workflow (init -> plan -> apply)"; \
 	run_cmd terraform -chdir="$(TERRAFORM_DIR)" init; \
 	run_cmd terraform -chdir="$(TERRAFORM_DIR)" plan; \
 	run_cmd terraform -chdir="$(TERRAFORM_DIR)" apply; \
+	ensure_minikube_running; \
+	echo "[make] Waiting for all nodes to be Ready..."; \
+	if [[ "$$dry_run" == "true" ]]; then \
+		printf '[make][dry-run] %s\n' "kubectl wait --for=condition=Ready nodes --all --timeout=120s"; \
+	else \
+		kubectl wait --for=condition=Ready nodes --all --timeout=120s; \
+	fi; \
 	echo "[make] Applying Kubernetes manifests"; \
 	run_cmd kubectl apply -k "$(K8S_DIR)"; \
 	run_cmd kubectl -n "$(NAMESPACE)" rollout status "deployment/$(DEPLOYMENT_NAME)" --timeout=180s; \
@@ -78,8 +85,16 @@ run: check-version check-tools check-files
 		echo "[make] Deployment finished successfully."; \
 	fi
 
-release:
+release: check-release-tools check-release-files
 	@set -euo pipefail; \
+	dry_run="$(DRY_RUN)"; \
+	run_cmd() { \
+		if [[ "$$dry_run" == "true" ]]; then \
+			printf '[make][dry-run] %s\n' "$$*"; \
+		else \
+			"$$@"; \
+		fi; \
+	}; \
 	target_version="$(VERSION)"; \
 	if [[ -z "$$target_version" ]]; then \
 		current_version="$$(awk -v image="$(IMAGE_REPOSITORY)" '\
@@ -114,17 +129,38 @@ release:
 	else \
 		echo "[make] Using manual release version: $$target_version"; \
 	fi; \
-	$(MAKE) --no-print-directory run VERSION="$$target_version" DRY_RUN="$(DRY_RUN)"
+	[[ "$$target_version" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$$ ]] || { \
+		echo "[make] ERROR: Invalid release version '$$target_version'"; \
+		echo "[make] Expected Docker tag format: [A-Za-z0-9_][A-Za-z0-9_.-]{0,127}"; \
+		exit 1; \
+	}; \
+	IMAGE_REPOSITORY_ESCAPED="$$(printf '%s' "$(IMAGE_REPOSITORY)" | sed -e 's/[][\\/.*^$$+?|(){}-]/\\&/g')"; \
+	grep -qE "^[[:space:]]*-[[:space:]]*name:[[:space:]]*$$IMAGE_REPOSITORY_ESCAPED[[:space:]]*$$" "$(KUSTOMIZATION_FILE)" || { \
+		echo "[make] ERROR: Image '$(IMAGE_REPOSITORY)' not found in $(KUSTOMIZATION_FILE)"; \
+		exit 1; \
+	}; \
+	echo "[make] Building and publishing image $$target_version"; \
+	run_cmd docker build \
+		--file "$(DOCKERFILE_PATH)" \
+		--target production \
+		--tag "$(IMAGE_REPOSITORY):$$target_version" \
+		--tag "$(IMAGE_REPOSITORY):latest" \
+		.; \
+	run_cmd docker push "$(IMAGE_REPOSITORY):$$target_version"; \
+	run_cmd docker push "$(IMAGE_REPOSITORY):latest"; \
+	run_cmd sed -i -E "/^[[:space:]]*-[[:space:]]*name:[[:space:]]*$$IMAGE_REPOSITORY_ESCAPED[[:space:]]*$$/{n;s/^([[:space:]]*newTag:[[:space:]]*).*/\\1$$target_version/;}" "$(KUSTOMIZATION_FILE)"; \
+	echo "[make] Starting deployment pipeline (terraform + kubernetes)"; \
+	$(MAKE) --no-print-directory run DRY_RUN="$$dry_run"
 
 release-dry:
 	@$(MAKE) --no-print-directory release DRY_RUN=true VERSION="$(VERSION)"
 
 run-dry:
-	@$(MAKE) --no-print-directory run DRY_RUN=true VERSION="$(VERSION)"
+	@$(MAKE) --no-print-directory run DRY_RUN=true
 
 dry: run-dry
 
-version: check-files
+version: check-release-tools check-release-files
 	@set -euo pipefail; \
 	current_version="$$(awk -v image="$(IMAGE_REPOSITORY)" '\
 		BEGIN { match_image=0 } \
@@ -154,30 +190,30 @@ version: check-files
 		echo "[make] Current version is not semantic (x.y.z), so next patch cannot be calculated automatically."; \
 	fi
 
-check-tools:
-	@command -v docker >/dev/null 2>&1 || { echo "[make] ERROR: docker is required"; exit 1; }
+check-run-tools:
 	@command -v kubectl >/dev/null 2>&1 || { echo "[make] ERROR: kubectl is required"; exit 1; }
 	@command -v terraform >/dev/null 2>&1 || { echo "[make] ERROR: terraform is required"; exit 1; }
 	@command -v minikube >/dev/null 2>&1 || { echo "[make] ERROR: minikube is required"; exit 1; }
+
+check-release-tools:
+	@command -v docker >/dev/null 2>&1 || { echo "[make] ERROR: docker is required"; exit 1; }
 	@command -v awk >/dev/null 2>&1 || { echo "[make] ERROR: awk is required"; exit 1; }
 	@command -v sed >/dev/null 2>&1 || { echo "[make] ERROR: sed is required"; exit 1; }
 	@command -v grep >/dev/null 2>&1 || { echo "[make] ERROR: grep is required"; exit 1; }
 
-check-files:
-	@test -f "$(DOCKERFILE_PATH)" || { echo "[make] ERROR: Missing $(DOCKERFILE_PATH)"; exit 1; }
+check-run-files:
 	@test -f "$(TERRAFORM_DIR)/main.tf" || { echo "[make] ERROR: Missing $(TERRAFORM_DIR)/main.tf"; exit 1; }
 	@test -f "$(KUSTOMIZATION_FILE)" || { echo "[make] ERROR: Missing $(KUSTOMIZATION_FILE)"; exit 1; }
 	@test -f "$(K8S_DIR)/app/secret.env" || { echo "[make] ERROR: Missing $(K8S_DIR)/app/secret.env"; exit 1; }
 	@test -f "$(K8S_DIR)/mysql/secret.env" || { echo "[make] ERROR: Missing $(K8S_DIR)/mysql/secret.env"; exit 1; }
 	@test -f "$(K8S_DIR)/app/registry-credentials.json" || { echo "[make] ERROR: Missing $(K8S_DIR)/app/registry-credentials.json"; exit 1; }
 
+check-release-files:
+	@test -f "$(DOCKERFILE_PATH)" || { echo "[make] ERROR: Missing $(DOCKERFILE_PATH)"; exit 1; }
+	@test -f "$(KUSTOMIZATION_FILE)" || { echo "[make] ERROR: Missing $(KUSTOMIZATION_FILE)"; exit 1; }
+
 check-version:
-	@[[ -n "$(VERSION)" ]] || { \
-		echo "[make] ERROR: VERSION is required for 'make run'."; \
-		echo "[make] Use: make run VERSION=1.0.2"; \
-		echo "[make] Or use: make release (auto-increment patch from $(KUSTOMIZATION_FILE))"; \
-		exit 1; \
-	}
+	@[[ -n "$(VERSION)" ]] || { echo "[make] ERROR: VERSION is required for check-version"; exit 1; }
 	@[[ "$(VERSION)" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$$ ]] || { \
 		echo "[make] ERROR: Invalid VERSION='$(VERSION)'"; \
 		echo "[make] Expected Docker tag format: [A-Za-z0-9_][A-Za-z0-9_.-]{0,127}"; \
