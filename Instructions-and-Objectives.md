@@ -45,12 +45,12 @@ There is no need to run a cloud account, even on the free tier, or any other cos
 
 While not all of these need to be implemented, the more of them that are completed, the better, but these are also expected to contain **production grade** quality, and will be evaluated under the same criteria explained above:
 
-- Configure Kubernetes to authenticate to a private container repository;
-- Create a script automating image building and deployment;
-- Add a reverse proxy to route requests instead of exposing the main service;
+- (Talvez seja fácil) Configure Kubernetes to authenticate to a private container repository;
+- ~~Create a script automating image building and deployment;~~
+- (Conferir se é o Ingress) Add a reverse proxy to route requests instead of exposing the main service;
 - Write a few test scenarios, either for performance, functional or any other relevant kind of testing;
-- Create a script to configure a local kubernetes cluster, deploy the application and run the test scenarios mentioned above;
-- Configure the local kubernetes cluster to have 2+ worker nodes;
+- (Script pra fazer localmente o que nós fizemos - isso é pra facilitar pro cara testar o que nós fizemos. Dica: copiar o histórico de comandos utilizados) Create a script to configure a local kubernetes cluster, deploy the application and run the test scenarios mentioned above;
+- (Já feito) Configure the local kubernetes cluster to have 2+ worker nodes;
 - Use [Helm](https://helm.sh/) on your application;
 - Use [Terraform](https://www.terraform.io/) to configure the local environment of your application;
   - Use it to configure a remote environment on any cloud provider as well;  
