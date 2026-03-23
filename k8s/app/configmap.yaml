@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: k8s-app
+  labels:
+    app.kubernetes.io/name: app
+    app.kubernetes.io/component: backend
+data:
+  TYPEORM_CONNECTION: mysql
+  TYPEORM_HOST: mysql
+  TYPEORM_PORT: "3306"
+  TYPEORM_DATABASE: app
+  TYPEORM_ENTITIES: dist/entity/*.js
+  TYPEORM_SUBSCRIBERS: dist/subscriber/*.js
+  TYPEORM_MIGRATIONS: dist/migration/*.js
+  TYPEORM_ENTITIES_DIR: dist/entity
+  TYPEORM_MIGRATIONS_DIR: dist/migration
+  TYPEORM_SUBSCRIBERS_DIR: dist/subscriber
