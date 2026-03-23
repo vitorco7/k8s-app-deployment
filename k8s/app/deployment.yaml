@@ -7,7 +7,12 @@ metadata:
     app.kubernetes.io/name: app
     app.kubernetes.io/component: backend
 spec:
-  replicas: 3
+  replicas: 9
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: app
@@ -17,26 +22,24 @@ spec:
         app.kubernetes.io/name: app
         app.kubernetes.io/component: backend
     spec:
-      # Spread pods evenly across the 3 availability zones for high availability.
-      # DoNotSchedule enforces the constraint so no zone is overloaded; adjust to
-      # ScheduleAnyway if scheduling flexibility is preferred over strict spread.
-      # topologySpreadConstraints:
-      #   - maxSkew: 1
-      #     topologyKey: topology.kubernetes.io/zone
-      #     whenUnsatisfiable: DoNotSchedule
-      #     labelSelector:
-      #       matchLabels:
-      #         app.kubernetes.io/name: app
-      # # Ensure no two replicas of this pod land on the same node
-      # affinity:
-      #   podAntiAffinity:
-      #     preferredDuringSchedulingIgnoredDuringExecution:
-      #       - weight: 100
-      #         podAffinityTerm:
-      #           labelSelector:
-      #             matchLabels:
-      #               app.kubernetes.io/name: app
-      #           topologyKey: kubernetes.io/hostname
+      # Two-level best-effort spread:
+      #   1. Across availability zones (cloud providers label nodes with topology.kubernetes.io/zone)
+      #   2. Across individual nodes within each zone
+      # ScheduleAnyway makes both constraints soft so local clusters without zone labels
+      # or with fewer nodes than replicas still schedule without blocking.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: app
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: app
       containers:
         - name: app
           image: vco7/k8s-app-deployment:latest
