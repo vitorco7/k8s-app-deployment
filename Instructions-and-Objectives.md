@@ -31,10 +31,10 @@ To highlight a few criteria, in no particular order:
 
 Submissions that do not contain these requirements will be automatically disconsidered:
 
-1. Create a container image with the application in this repository and publish it in a public repository (dockerhub, quay, etc);
-2. Write all the code you feel necessary to deploy the image in a kubernetes cluster;
+1. ~~Create a container image with the application in this repository and publish it in a public repository (dockerhub, quay, etc)~~;
+2. ~~Write all the code you feel necessary to deploy the image in a kubernetes cluster~~;
 3. Expose the application externally to the kubernetes cluster;
-4. Configure the application to be deployed in a highly available setup, considering the cluster has worker nodes in 3 different availability zones;
+4. ~~Configure the application to be deployed in a highly available setup, considering the cluster has worker nodes in 3 different availability zones~~;
 
 ## Testing
 
@@ -45,7 +45,7 @@ There is no need to run a cloud account, even on the free tier, or any other cos
 
 While not all of these need to be implemented, the more of them that are completed, the better, but these are also expected to contain **production grade** quality, and will be evaluated under the same criteria explained above:
 
-- Configure Kubernetes to authenticate to a private container repository;
+- ~~Configure Kubernetes to authenticate to a private container repository~~;
 - Create a script automating image building and deployment;
 - Add a reverse proxy to route requests instead of exposing the main service;
 - Write a few test scenarios, either for performance, functional or any other relevant kind of testing;
@@ -53,6 +53,7 @@ While not all of these need to be implemented, the more of them that are complet
 - Configure the local kubernetes cluster to have 2+ worker nodes;
 - Use [Helm](https://helm.sh/) on your application;
 - Use [Terraform](https://www.terraform.io/) to configure the local environment of your application;
+- 
   - Use it to configure a remote environment on any cloud provider as well;  
 
 ## How to run this application

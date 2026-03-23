@@ -18,6 +18,13 @@ secretGenerator:
       - mysql/secret.env
     options:
       disableNameSuffixHash: true
+  - name: registry-credentials
+    namespace: k8s-app
+    type: kubernetes.io/dockerconfigjson
+    files:
+      - .dockerconfigjson=app/registry-credentials.json
+    options:
+      disableNameSuffixHash: true
 
 resources:
   - namespace.yaml

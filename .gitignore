@@ -2,3 +2,4 @@ ormconfig.env
 dbconfig.env
 node_modules/
 k8s/**/secret.env
+k8s/**/registry-credentials.json

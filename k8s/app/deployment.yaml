@@ -36,6 +36,8 @@ spec:
           labelSelector:
             matchLabels:
               app.kubernetes.io/name: app
+      imagePullSecrets:
+        - name: registry-credentials
       containers:
         - name: app
           image: vco7/k8s-app-deployment:latest
