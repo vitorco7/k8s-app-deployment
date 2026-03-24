@@ -93,21 +93,21 @@ kubectl -n k8s-app get svc
 Option A (no hosts file changes):
 
 ```bash
-curl -i -H "Host: api.k8s-app.local" "http://$(minikube ip)/posts"
+curl -i -H "Host: liferayapp.local" "http://$(minikube ip)/posts"
 ```
 
 Option B (friendlier URL):
 
 ```bash
-echo "$(minikube ip) api.k8s-app.local" | sudo tee -a /etc/hosts
-curl -i http://api.k8s-app.local/posts
+echo "$(minikube ip) liferayapp.local" | sudo tee -a /etc/hosts
+curl -i http://liferayapp.local/posts
 ```
 
 Create a sample post:
 
 ```bash
 curl -i \
-  -H "Host: api.k8s-app.local" \
+  -H "Host: liferayapp.local" \
   -H "Content-Type: application/json" \
   -X POST \
   -d '{"title":"hello","text":"from interview run","categories":[{"name":"demo"}]}' \
@@ -180,16 +180,16 @@ If this fails:
 ```bash
 MINIKUBE_IP="$(minikube ip)"
 
-curl -sS -i -H "Host: api.k8s-app.local" "http://${MINIKUBE_IP}/posts"
+curl -sS -i -H "Host: liferayapp.local" "http://${MINIKUBE_IP}/posts"
 
 curl -sS -i \
-  -H "Host: api.k8s-app.local" \
+  -H "Host: liferayapp.local" \
   -H "Content-Type: application/json" \
   -X POST \
   -d '{"title":"interview-demo","text":"hello from demo","categories":[{"name":"demo"}]}' \
   "http://${MINIKUBE_IP}/posts"
 
-curl -sS -i -H "Host: api.k8s-app.local" "http://${MINIKUBE_IP}/posts"
+curl -sS -i -H "Host: liferayapp.local" "http://${MINIKUBE_IP}/posts"
 ```
 
 Expected:
@@ -198,7 +198,7 @@ Expected:
 - Final GET returns the inserted post.
 
 If this fails:
-- Confirm ingress host header is present (`Host: api.k8s-app.local`).
+- Confirm ingress host header is present (`Host: liferayapp.local`).
 - Check app logs:
   - `kubectl -n k8s-app logs deployment/app --tail=100`
 
@@ -228,7 +228,7 @@ Expected:
 
 ```mermaid
 flowchart LR
-  U[Interviewer curl/postman] -->|Host: api.k8s-app.local| ING[NGINX Ingress]
+  U[Interviewer curl/postman] -->|Host: liferayapp.local| ING[NGINX Ingress]
   ING --> SVC[Service app (ClusterIP:80)]
   SVC --> APP[Deployment app (9 pods / 3 zones)]
   APP --> DB[(MariaDB StatefulSet + PVC)]
@@ -263,7 +263,7 @@ Application stack:
 - Database:
   - MariaDB `StatefulSet` with `1` replica and persistent volume claim
 - Traffic:
-  - `Ingress` host: `api.k8s-app.local`
+  - `Ingress` host: `liferayapp.local`
   - App service type: `ClusterIP` on port `80` to pod `3000`
 
 ### Infrastructure provisioning
@@ -316,8 +316,17 @@ Common overrides:
 
 `curl localhost:3000` fails after Kubernetes deploy:
 - Expected in this setup.
-- The k8s entrypoint is ingress host `api.k8s-app.local`, not host port `3000`.
-- Use `curl -H "Host: api.k8s-app.local" "http://$(minikube ip)/posts"`.
+- The k8s entrypoint is ingress host `liferayapp.local`, not host port `3000`.
+- Use `curl -H "Host: liferayapp.local" "http://$(minikube ip)/posts"`.
+
+`curl http://liferayapp.local/posts` fails with `Could not resolve host` or old host returns `404`:
+- Remove stale host mappings (especially `api.k8s-app.local`) from `/etc/hosts`.
+- Add the current Minikube IP for `liferayapp.local`.
+
+```bash
+sudo sed -i '/api\.k8s-app\.local/d;/liferayapp\.local/d' /etc/hosts
+echo "$(minikube ip) liferayapp.local" | sudo tee -a /etc/hosts
+```
 
 Pods stuck in `ImagePullBackOff`:
 - Check `k8s/app/registry-credentials.json` exists and is valid.

@@ -11,7 +11,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: api.k8s-app.local
+    - host: liferayapp.local
       http:
         paths:
           - path: /
