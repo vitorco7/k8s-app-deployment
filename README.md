@@ -46,7 +46,7 @@ cp k8s/app/registry-credentials.json.example k8s/app/registry-credentials.json
 Then edit values:
 - Ensure `k8s/app/secret.env` and `k8s/mysql/secret.env` use matching DB credentials.
 - Add `TYPEORM_SYNCHRONIZE=true` to `k8s/app/secret.env` for first local run.
-- For `publish`/`release`, set real Docker Hub credentials in `k8s/app/registry-credentials.json`.
+- For `release`, set real Docker Hub credentials in `k8s/app/registry-credentials.json`.
 
 Minimal working local example:
 
@@ -68,7 +68,7 @@ MYSQL_PASSWORD=changeme
 ### 4) Deploy
 
 ```bash
-make deploy
+make run
 ```
 
 What this does:
@@ -77,7 +77,7 @@ What this does:
 - Waits for deployment rollout
 
 Important behavior:
-- `make deploy` recreates the Minikube profile defined in Terraform (default profile: `minikube`).
+- `make run` recreates the Minikube profile defined in Terraform (default profile: `minikube`).
 
 ### 5) Validate cluster and workloads
 
@@ -143,7 +143,7 @@ If this fails:
 ### 2) Deploy everything
 
 ```bash
-make deploy
+make run
 ```
 
 Expected:
@@ -216,7 +216,7 @@ Expected:
 ### 6) Optional cleanup
 
 ```bash
-make terraform-destroy
+make destroy
 ```
 
 Expected:
@@ -233,7 +233,7 @@ flowchart LR
   SVC --> APP[Deployment app (9 pods / 3 zones)]
   APP --> DB[(MariaDB StatefulSet + PVC)]
 
-  M[make deploy/release] --> OPS[Terraform + kubectl apply -k]
+  M[make run/release] --> OPS[Terraform + kubectl apply -k]
   OPS --> K8S[Minikube cluster (1 control-plane + 3 workers)]
   K8S --> ING
   K8S --> APP
@@ -278,39 +278,24 @@ Default zones:
 ## Makefile Commands
 
 Primary commands:
-- `make deploy`: deploy current version from `k8s/kustomization.yaml`
-- `make publish`: build image, push tags, bump `newTag` in kustomization
-- `make release`: full pipeline (`publish + deploy`)
-
-Dry-run helpers:
-- `make deploy-dry`
-- `make publish-dry`
-- `make release-dry`
-
-Compatibility aliases:
-- `make run` -> alias for `make deploy`
-- `make build` -> alias for `make publish`
-
-Version helpers:
-- `make version`
-- `make publish V=1.0.3`
-- `make release V=1.0.3`
-
-Cleanup:
-- `make terraform-destroy`
-- `make stop-pods`
+- `make run`: configure local cluster with Terraform + Minikube and deploy the app
+- `make release`: bump patch version, build/push Docker image, update `newTag`, then execute `make run`
+- `make version`: show current release version (and next patch)
+- `make destroy`: run `terraform destroy` for local infrastructure
+- `make help`: list commands and optional overrides
 
 ## Release Flow Notes
 
-`make publish` expects the image name in `k8s/kustomization.yaml` to match `IMAGE_REPOSITORY`.
+`make release` expects the image name in `k8s/kustomization.yaml` to match `IMAGE_REPOSITORY`.
+`make release` increments the patch part of the current semantic version in `newTag` (for example: `1.0.2 -> 1.0.3`).
 
 Defaults:
 - `IMAGE_REPOSITORY=vco7/k8s-app-deployment`
-- `KUSTOMIZATION_FILE=k8s/kustomization.yaml`
+- Kustomization file path is fixed at `k8s/kustomization.yaml`
 
-If you want to publish to a different repository:
+If you want to release to a different repository:
 1. Update the image `name` in `k8s/kustomization.yaml`
-2. Run `make publish IMAGE_REPOSITORY=<your-user>/<your-repo> V=<version>`
+2. Run `make release IMAGE_REPOSITORY=<your-user>/<your-repo>`
 
 ## Configuration and Files
 
@@ -326,13 +311,6 @@ Template files:
 
 Common overrides:
 - `IMAGE_REPOSITORY`
-- `DOCKERFILE_PATH`
-- `TERRAFORM_DIR`
-- `K8S_DIR`
-- `KUSTOMIZATION_FILE`
-- `NAMESPACE`
-- `DEPLOYMENT_NAME`
-- `VERSION` (or shorthand `V`)
 
 ## Troubleshooting
 
@@ -364,13 +342,13 @@ kubectl -n k8s-app get pods -l app.kubernetes.io/name=app -o wide
 - `Dockerfiles/app/dockerfile.yaml`: multi-stage production image build
 - `k8s/`: Kubernetes manifests and kustomization
 - `terraform/`: local cluster provisioning and node zone labeling
-- `Makefile`: deployment/release entrypoint
+- `Makefile`: deployment and release entrypoint
 
 ## Known Trade-offs
 
 - MariaDB runs as a single replica StatefulSet (not multi-zone HA database).
 - Terraform-driven deploy recreates Minikube profile for deterministic local runs, which can be destructive to an existing profile with the same name.
-- `publish/release` assume container-registry push permissions.
+- `release` assumes container-registry push permissions.
 
 ## Optional Non-Kubernetes Local Mode
 
@@ -381,4 +359,4 @@ docker compose up -d
 curl -i http://localhost:3000/posts
 ```
 
-Use this mode only for quick app-level debugging; the primary evaluation path is Kubernetes via `make deploy`.
+Use this mode only for quick app-level debugging; the primary evaluation path is Kubernetes via `make run`.
