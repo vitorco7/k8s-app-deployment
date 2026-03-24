@@ -17,18 +17,24 @@ ifneq ($(strip $(V)),)
 VERSION := $(V)
 endif
 
-.PHONY: help run release release-dry run-dry dry version stop-pods terraform-destroy check-run-tools check-release-tools check-run-files check-release-files check-version
+.PHONY: help deploy publish release deploy-dry publish-dry release-dry run build run-dry build-dry dry version stop-pods terraform-destroy check-run-tools check-release-tools check-run-files check-release-files check-version
 
 help:
 	@echo "Targets:"
-	@echo "  make run                   Run only terraform + kubernetes deployment"
-	@echo "  make release               Build + publish + version bump + deploy"
-	@echo "  make release V=1.0.3       Override release version manually"
+	@echo "  make deploy                Deploy current version (terraform + kubernetes)"
+	@echo "  make publish               Build + publish + version bump (no deploy)"
+	@echo "  make release               Full pipeline: build + publish + version bump + deploy"
+	@echo "  make publish V=1.0.3       Override publish version manually"
+	@echo "  make release V=1.0.3       Override release/publish version manually"
 	@echo "  make version               Show current and next patch version from kustomization"
-	@echo "  make run-dry               Dry run for terraform + kubernetes deployment"
-	@echo "  make release-dry           Dry run with automatic patch bump"
-	@echo "  make run DRY_RUN=true      Same as run-dry"
-	@echo "  make run --dry             Raw GNU Make preview (prints recipe text only)"
+	@echo "  make publish-dry           Dry run for build + publish + version bump"
+	@echo "  make deploy-dry            Dry run for terraform + kubernetes deployment"
+	@echo "  make release-dry           Dry run for the full release pipeline"
+	@echo "  make deploy DRY_RUN=true   Same as deploy-dry"
+	@echo "  make publish DRY_RUN=true  Same as publish-dry"
+	@echo "  make deploy --dry          Raw GNU Make preview (prints recipe text only)"
+	@echo "  make run                   Alias of deploy"
+	@echo "  make build                 Alias of publish"
 	@echo "  make stop-pods             Scale all deployments in namespace to 0 replicas"
 	@echo "  make terraform-destroy     Run terraform destroy in the terraform directory"
 	@echo ""
@@ -42,7 +48,7 @@ help:
 	@echo "  DEPLOYMENT_NAME=$(DEPLOYMENT_NAME)"
 	@echo "  VERSION=$(if $(strip $(VERSION)),$(VERSION),<empty>)"
 
-run: check-run-tools check-run-files
+deploy: check-run-tools check-run-files
 	@set -euo pipefail; \
 	dry_run="$(DRY_RUN)"; \
 	run_cmd() { \
@@ -87,7 +93,9 @@ run: check-run-tools check-run-files
 		echo "[make] Deployment finished successfully."; \
 	fi
 
-release: check-release-tools check-release-files
+run: deploy
+
+publish: check-release-tools check-release-files
 	@set -euo pipefail; \
 	dry_run="$(DRY_RUN)"; \
 	run_cmd() { \
@@ -121,7 +129,7 @@ release: check-release-tools check-release-files
 		}; \
 		[[ "$$current_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$$ ]] || { \
 			echo "[make] ERROR: Current tag '$$current_version' is not semantic version (x.y.z)."; \
-			echo "[make] Set one manually in $(KUSTOMIZATION_FILE) or run: make release V=1.0.0"; \
+			echo "[make] Set one manually in $(KUSTOMIZATION_FILE) or run: make publish V=1.0.0"; \
 			exit 1; \
 		}; \
 		IFS='.' read -r major minor patch <<< "$$current_version"; \
@@ -129,10 +137,10 @@ release: check-release-tools check-release-files
 		echo "[make] Current version: $$current_version"; \
 		echo "[make] Next patch version: $$target_version"; \
 	else \
-		echo "[make] Using manual release version: $$target_version"; \
+		echo "[make] Using manual publish version: $$target_version"; \
 	fi; \
 	[[ "$$target_version" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$$ ]] || { \
-		echo "[make] ERROR: Invalid release version '$$target_version'"; \
+		echo "[make] ERROR: Invalid publish version '$$target_version'"; \
 		echo "[make] Expected Docker tag format: [A-Za-z0-9_][A-Za-z0-9_.-]{0,127}"; \
 		exit 1; \
 	}; \
@@ -151,16 +159,35 @@ release: check-release-tools check-release-files
 	run_cmd docker push "$(IMAGE_REPOSITORY):$$target_version"; \
 	run_cmd docker push "$(IMAGE_REPOSITORY):latest"; \
 	run_cmd sed -i -E "/^[[:space:]]*-[[:space:]]*name:[[:space:]]*$$IMAGE_REPOSITORY_ESCAPED[[:space:]]*$$/{n;s/^([[:space:]]*newTag:[[:space:]]*).*/\\1$$target_version/;}" "$(KUSTOMIZATION_FILE)"; \
-	echo "[make] Starting deployment pipeline (terraform + kubernetes)"; \
-	$(MAKE) --no-print-directory run DRY_RUN="$$dry_run"
+	if [[ "$$dry_run" == "true" ]]; then \
+		echo "[make] Build dry-run finished. No changes were applied."; \
+	else \
+		echo "[make] Build pipeline finished successfully."; \
+	fi
+
+build: publish
+
+release:
+	@set -euo pipefail; \
+	dry_run="$(DRY_RUN)"; \
+	echo "[make] Starting full release pipeline (publish + deploy)"; \
+	$(MAKE) --no-print-directory publish DRY_RUN="$$dry_run" VERSION="$(VERSION)"; \
+	$(MAKE) --no-print-directory deploy DRY_RUN="$$dry_run"
+
+publish-dry:
+	@$(MAKE) --no-print-directory publish DRY_RUN=true VERSION="$(VERSION)"
+
+build-dry: publish-dry
 
 release-dry:
 	@$(MAKE) --no-print-directory release DRY_RUN=true VERSION="$(VERSION)"
 
-run-dry:
-	@$(MAKE) --no-print-directory run DRY_RUN=true
+deploy-dry:
+	@$(MAKE) --no-print-directory deploy DRY_RUN=true
 
-dry: run-dry
+run-dry: deploy-dry
+
+dry: deploy-dry
 
 version: check-release-tools check-release-files
 	@set -euo pipefail; \

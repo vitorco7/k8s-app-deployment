@@ -6,7 +6,13 @@ Case study for app deployment with kubernetes
 Use only `Makefile` as the deployment entrypoint:
 
 ```bash
-make run
+make deploy
+```
+
+Run only build and publish pipeline (no deploy):
+
+```bash
+make publish
 ```
 
 Run the full pipeline (build + publish + version bump + deploy):
@@ -15,9 +21,10 @@ Run the full pipeline (build + publish + version bump + deploy):
 make release
 ```
 
-Release with manual override:
+Build or release with manual override:
 
 ```bash
+make publish V=1.0.2
 make release V=1.0.2
 ```
 
@@ -30,28 +37,35 @@ make version
 Preview options:
 
 ```bash
-make run-dry
+make publish-dry
+make deploy-dry
 make release-dry
-make run DRY_RUN=true
-make run --dry
+make publish DRY_RUN=true
+make deploy DRY_RUN=true
+make deploy --dry
 ```
 
 Notes:
-- `make run` runs only Terraform + Kubernetes deployment.
-- `make release` reads current `newTag` in `k8s/kustomization.yaml` for `vco7/k8s-app-deployment`, increments patch (`1.0.1 -> 1.0.2`), builds/pushes image, updates tag, then runs deployment.
-- `make run-dry` / `make release-dry` / `make run DRY_RUN=true` are the recommended previews.
-- `make run --dry` is GNU Make raw output (recipe text only), so it can look noisy and include fallback error branches that are not actually executed.
+- `make deploy` deploys the current version already present in `k8s/kustomization.yaml`.
+- `make publish` reads current `newTag` in `k8s/kustomization.yaml` for `vco7/k8s-app-deployment`, increments patch (`1.0.1 -> 1.0.2`), builds/pushes image, and updates tag in `k8s/kustomization.yaml` (without deploying).
+- `make release` runs `make publish` and then `make deploy`.
+- `make publish-dry` / `make deploy-dry` / `make release-dry` / `make publish DRY_RUN=true` / `make deploy DRY_RUN=true` are the recommended previews.
+- `make deploy --dry` is GNU Make raw output (recipe text only), so it can look noisy and include fallback error branches that are not actually executed.
+- Compatibility aliases: `make run` = `make deploy`, `make build` = `make publish`.
 
-`make run` does:
+`make deploy` does:
 - Runs Terraform workflow in `terraform/` (`init`, `plan`, `apply`)
 - Applies manifests with `kubectl apply -k k8s/`
 - Waits for rollout completion (`deployment/app` in `k8s-app` namespace)
 
-`make release` does:
+`make publish` does:
 - Builds the app image from `Dockerfiles/app/dockerfile.yaml` (`production` target)
 - Pushes `<version>` and `latest` tags to Docker Hub
 - Updates `k8s/kustomization.yaml` (`images[].newTag`)
-- Triggers `make run` (Terraform + Kubernetes deployment)
+
+`make release` does:
+- Runs `make publish`
+- Runs `make deploy` (Terraform + Kubernetes deployment)
 
 Required local files:
 - `k8s/app/secret.env`
@@ -66,5 +80,5 @@ Optional environment overrides:
 - `KUSTOMIZATION_FILE` (default: `k8s/kustomization.yaml`)
 - `NAMESPACE` (default: `k8s-app`)
 - `DEPLOYMENT_NAME` (default: `app`)
-- `VERSION` (optional manual override for `make release`)
-- `V` (short alias for `VERSION`, useful with `make release V=...`)
+- `VERSION` (optional manual override for `make publish` / `make release`)
+- `V` (short alias for `VERSION`, useful with `make publish V=...` / `make release V=...`)
