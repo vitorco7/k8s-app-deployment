@@ -15,11 +15,11 @@ If you only want to run the project locally and validate the API, use this path.
 ### 1) Prerequisites
 
 Install these tools first:
-- Docker
-- Minikube
-- kubectl
-- Terraform `>= 1.6`
-- GNU Make
+- Docker: https://docs.docker.com/engine/install/
+- Minikube: https://minikube.sigs.k8s.io/docs/start/?arch=%2Flinux%2Fx86-64%2Fstable%2Fbinary%20download
+- kubectl: https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/
+- Terraform `>= 1.6`: https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli
+- GNU Make (install via your Linux distro package manager)
 
 Recommended machine capacity for default cluster settings:
 - At least `8 vCPU` and `16 GB RAM` available to Docker/Minikube
@@ -29,7 +29,7 @@ Why: the default Terraform config creates `1 control-plane + 3 worker nodes`, ea
 ### 2) Clone the repository
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/vitorco7/k8s-app-deployment
 cd k8s-app-deployment
 ```
 
@@ -65,6 +65,20 @@ MYSQL_USER=app
 MYSQL_PASSWORD=changeme
 ```
 
+Registry credentials example (`k8s/app/registry-credentials.json`):
+
+```json
+{
+  "auths": {
+    "https://index.docker.io/v1/": {
+      "username": "changeme-username",
+      "password": "changeme-registry-password-or-access-token",
+      "auth": "base64-encoded-username-password"
+    }
+  }
+}
+```
+
 ### 4) Deploy
 
 ```bash
@@ -83,6 +97,7 @@ Important behavior:
 
 ```bash
 kubectl get nodes
+kubectl get nodes -L topology.kubernetes.io/zone
 kubectl -n k8s-app get pods -o wide
 kubectl -n k8s-app get ingress
 kubectl -n k8s-app get svc
@@ -112,6 +127,15 @@ curl -i \
   -X POST \
   -d '{"title":"hello","text":"from interview run","categories":[{"name":"demo"}]}' \
   "http://$(minikube ip)/posts"
+```
+
+Remove the sample post from the database (this API does not expose a `DELETE /posts/:id` endpoint):
+
+```bash
+set -a && source k8s/mysql/secret.env && set +a
+kubectl -n k8s-app exec statefulset/mysql -- \
+  mysql -u"${MYSQL_USER}" -p"${MYSQL_PASSWORD}" "${MYSQL_DATABASE}" \
+  -e "DELETE FROM post WHERE title='hello';"
 ```
 
 ## 5-Minute Demo Script (Interviewer)
@@ -161,6 +185,7 @@ If this fails:
 
 ```bash
 kubectl get nodes
+kubectl get nodes -L topology.kubernetes.io/zone
 kubectl -n k8s-app get pods -o wide
 kubectl -n k8s-app get ingress
 kubectl -n k8s-app get svc
@@ -175,7 +200,7 @@ If this fails:
 - `kubectl -n k8s-app describe pod <failing-pod>`
 - `kubectl -n k8s-app logs <failing-pod> --all-containers`
 
-### 4) Functional API check (GET + POST + GET)
+### 4) Functional API check (GET + POST + GET + sample cleanup)
 
 ```bash
 MINIKUBE_IP="$(minikube ip)"
@@ -190,6 +215,11 @@ curl -sS -i \
   "http://${MINIKUBE_IP}/posts"
 
 curl -sS -i -H "Host: liferayapp.local" "http://${MINIKUBE_IP}/posts"
+
+set -a && source k8s/mysql/secret.env && set +a
+kubectl -n k8s-app exec statefulset/mysql -- \
+  mysql -u"${MYSQL_USER}" -p"${MYSQL_PASSWORD}" "${MYSQL_DATABASE}" \
+  -e "DELETE FROM post WHERE title='interview-demo';"
 ```
 
 Expected:
@@ -205,7 +235,7 @@ If this fails:
 ### 5) High-availability evidence (quick proof)
 
 ```bash
-kubectl get nodes --show-labels | grep topology.kubernetes.io/zone
+kubectl get nodes -L topology.kubernetes.io/zone
 kubectl -n k8s-app get pods -l app.kubernetes.io/name=app -o wide
 ```
 
@@ -341,7 +371,7 @@ Insufficient resources / scheduling failures:
 - Verify node labels and pod distribution:
 
 ```bash
-kubectl get nodes --show-labels | grep topology.kubernetes.io/zone
+kubectl get nodes -L topology.kubernetes.io/zone
 kubectl -n k8s-app get pods -l app.kubernetes.io/name=app -o wide
 ```
 
