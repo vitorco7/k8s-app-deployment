@@ -3,7 +3,7 @@ kind: Kustomization
 
 images:
   - name: vco7/k8s-app-deployment
-    newTag: 1.0.2
+    newTag: 1.0.3
 
 secretGenerator:
   - name: app-db-credentials
