@@ -11,5 +11,5 @@ terraform/*.tfvars
 FIRST-STEPS.md
 SUMMARY-CONTEXT.md
 SUMMARY-CONTEXT-2.md
-dist/
 .codex
+text-drafts/
